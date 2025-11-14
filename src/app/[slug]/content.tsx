@@ -3,12 +3,13 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { fetcher } from "@/action/fetcher";
+import { useConstructSearchQuery } from "@/hooks/use-construct-query";
+import { useQuerySetter } from "@/hooks/use-query-setter";
 import type { Criteria } from "./page";
 
 export type Props = { criteria?: Criteria };
-
 export type Item = {
   id: string;
   category_id: string;
@@ -38,16 +39,38 @@ export type Recomendation = {
 export default function RecomendationForm({ criteria }: Props) {
   const { slug } = useParams<{ slug: string }>();
 
-  const [min, setMin] = useState<number>(2000000);
-  const [max, setMax] = useState<number>(4000000);
+  const queryValue = useConstructSearchQuery<{
+    basePrice: {
+      min: string;
+      max: string;
+    };
+    criteria_id: string;
+  }>();
 
+  const [min, setMin] = useState<number>(
+    Number(queryValue?.basePrice?.min ?? 2000000),
+  );
+  const [max, setMax] = useState<number>(
+    Number(queryValue?.basePrice?.max ?? 4000000),
+  );
   const [criteria_id, setCriteriaId] = useState<string | undefined>(
-    criteria?.length ? criteria[0].id : undefined,
+    queryValue?.criteria_id ?? (criteria?.length ? criteria[0].id : undefined),
   );
 
   const [recomendation, setRecomendation] = useState<
     Recomendation | undefined
   >();
+
+  useQuerySetter(
+    {
+      basePrice: {
+        min,
+        max,
+      },
+      criteria_id,
+    },
+    { delayBefore: [recomendation] },
+  );
 
   const onSubmit = useCallback(async () => {
     const getRecomendation = await fetcher<Recomendation>(
@@ -65,10 +88,6 @@ export default function RecomendationForm({ criteria }: Props) {
       setRecomendation(getRecomendation.data);
     }
   }, [min, max, criteria_id]);
-
-  useEffect(() => {
-    console.log(recomendation);
-  }, [recomendation]);
 
   return (
     <>
@@ -135,38 +154,40 @@ export default function RecomendationForm({ criteria }: Props) {
             Submit
           </button>
         </div>
-        <div className="flex flex-wrap justify-between max-lg:w-full w-3/5 rounded-sm shadow-md border border-gray-200 p-4 gap-4">
-          {recomendation?.result.map((item) => {
-            return (
-              <div
-                className="flex flex-col justify-between p-2 gap-2 w-36 text-sm"
-                key={item.id}
-              >
-                <div className="flex h-36">
-                  <img
-                    className="object-contain rounded-md"
-                    src={`${process.env.NEXT_PUBLIC_IMAGEKIT_URL}/${item.picture}`}
-                    alt={`${item.picture}`}
-                  />
-                </div>
-                <p className="font-bold">{item.item_name}</p>
-                <p>Score : {Math.round(item.totalScore * 100)}% </p>
-                <button
-                  className="p-2 rounded-md cursor-pointer bg-linear-to-bl from-red-600 to-red-800 active:bg-linear-to-bl active:from-red-800 active:to-red-600 text-white"
-                  type="button"
-                  onMouseOver={(e) => {
-                    e.currentTarget.innerText = "Ask AI";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.innerText = "Detail";
-                  }}
+        {recomendation && (
+          <div className="flex flex-wrap justify-evenly max-lg:w-full w-3/5 rounded-sm shadow-md border border-gray-200 p-4 gap-4">
+            {recomendation?.result.map((item) => {
+              return (
+                <div
+                  className="flex flex-col justify-between p-2 gap-2 w-36 text-sm"
+                  key={item.id}
                 >
-                  Detail
-                </button>
-              </div>
-            );
-          })}
-        </div>
+                  <div className="flex h-36">
+                    <img
+                      className="object-contain rounded-md"
+                      src={`${process.env.NEXT_PUBLIC_IMAGEKIT_URL}/${item.picture}`}
+                      alt={`${item.picture}`}
+                    />
+                  </div>
+                  <p className="font-bold">{item.item_name}</p>
+                  <p>Match : {Math.round(item.totalScore * 100)}% </p>
+                  <button
+                    className="p-2 rounded-md cursor-pointer bg-linear-to-bl from-red-600 to-red-800 active:bg-linear-to-bl active:from-red-800 active:to-red-600 text-white"
+                    type="button"
+                    onMouseOver={(e) => {
+                      e.currentTarget.innerText = "Ask AI";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.innerText = "Detail";
+                    }}
+                  >
+                    Detail
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </>
   );
