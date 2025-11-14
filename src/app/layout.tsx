@@ -19,6 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <meta name="apple-mobile-web-app-title" content="Rekomendasiin" />
       <body className={`${poppins.className} antialiased`}>{children}</body>
     </html>
   );
