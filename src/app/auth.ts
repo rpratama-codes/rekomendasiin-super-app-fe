@@ -7,7 +7,7 @@ import Google from "next-auth/providers/google";
 
 const backendUrl = process.env.BE_BASE_URL;
 
-export interface BackendUser {
+export interface User {
   first_name: string | null;
   last_name: string | null;
   email: string;
@@ -27,7 +27,7 @@ export interface AccessAndRefreshToken {
 }
 
 type BackendLoginData = AccessAndRefreshToken & {
-  user?: BackendUser;
+  user?: User;
 };
 
 type LoginCredential = { email: string; password: string };
@@ -184,12 +184,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
        * We want fill the payload data of jwt inside the cookie with our preference!.
        * and if user `null` or `undefined` it mean it from cookie!.
        */
-      const userData = (user ? user : {}) as BackendUser;
+      const userData = (user ? user : {}) as User;
 
       let jwtData: JWT &
         Partial<BackendJWT> &
         Partial<AccessAndRefreshToken> &
-        BackendUser = {
+        User = {
         ...token,
         ...userData,
       };
