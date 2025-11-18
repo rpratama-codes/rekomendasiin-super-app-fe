@@ -71,8 +71,6 @@ const backendAuth: BackendAuthFunction = async (args) => {
       break;
   }
 
-  console.log("endpint", endpoint);
-
   const request = await fetch(endpoint, {
     method: "POST",
     body: JSON.stringify(payload),
@@ -84,8 +82,6 @@ const backendAuth: BackendAuthFunction = async (args) => {
     message: string;
     data: BackendLoginData;
   };
-
-  console.log(request);
 
   if (String(request.status).startsWith("4")) {
     return null;
