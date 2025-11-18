@@ -96,37 +96,6 @@ const backendAuth: BackendAuthFunction = async (args) => {
   return data as BackendLoginData;
 };
 
-const refreshToken = async (
-  refreshToken: string,
-): Promise<AccessAndRefreshToken | null> => {
-  const request = await fetch("/v1/auth/refresh", {
-    headers: {
-      authorization: `Bearer ${refreshToken}`,
-    },
-  });
-
-  const response = (await request.json()) as {
-    code: number;
-    message: string;
-    data: AccessAndRefreshToken;
-  };
-
-  if (String(request.status).startsWith("4")) {
-    return null;
-  }
-
-  const data = response.data;
-
-  if (!data) {
-    return null;
-  }
-
-  return {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-  };
-};
-
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Google({
@@ -134,9 +103,52 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
     Credentials({
+      name: 'backend-refresh',
+      credentials: {
+        refreshToken: { label: "refresh token", type: "text", placeholder: "ey..." }
+      },
+      authorize: async (credential, _req) => {
+        console.log(credential)
+        if (!credential.refreshToken) {
+          return null
+        }
+
+        const request = await fetch(`${backendUrl}/v1/auth/refresh`, {
+          headers: {
+            authorization: `Bearer ${credential.refreshToken}`,
+          },
+        });
+
+        const response = (await request.json()) as {
+          code: number;
+          message: string;
+          data: BackendLoginData;
+        };
+
+        if (String(request.status).startsWith("4")) {
+          return null;
+        }
+
+        const data = response.data;
+
+        if (!data) {
+          return null;
+        }
+
+        const user = {
+          ...data.user,
+          name: data.user?.username,
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+        };
+
+        return user;
+      }
+    }),
+    Credentials({
       name: "backend-login",
       credentials: {
-        email: { label: "email", type: "email", placeholder: "jsmith" },
+        email: { label: "email", type: "email", placeholder: "jhon@doe.local" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, _req) {
@@ -218,33 +230,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           ...refreshTokenPayload,
           access_token: verifiedData.access_token,
           refresh_token: verifiedData.refresh_token,
-          /**
-           * Adjusting the exp date to match frontend format!.
-           */
-          exp: Math.ceil(Number(refreshTokenPayload.exp) / 1000),
+          exp: Number(refreshTokenPayload.exp),
         };
-      }
-
-      if (jwtData.access_token && jwtData.refresh_token) {
-        const accessPayload = jose.decodeJwt(jwtData.access_token);
-        const isExp = Date.now() / 1000 > Number(accessPayload.exp);
-
-        if (isExp) {
-          const refresh = await refreshToken(jwtData.refresh_token);
-          const refreshPayload = jose.decodeJwt(jwtData.access_token);
-
-          if (!refresh) return redirect("/api/auth/signin", RedirectType.push);
-
-          jwtData = {
-            ...jwtData,
-            access_token: refresh.access_token,
-            refresh_token: refresh.refresh_token,
-            /**
-             * Adjusting the exp date to match frontend format!.
-             */
-            exp: Math.ceil(Number(refreshPayload.exp) / 1000),
-          };
-        }
       }
 
       return jwtData;
