@@ -121,6 +121,9 @@
         clientId: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       }),
+      /**
+       * Just try refresh token using sign method.
+       */
       Credentials({
         id: "backend-refresh",
         name: "backend-refresh",
