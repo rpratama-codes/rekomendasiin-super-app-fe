@@ -1,6 +1,12 @@
 /** biome-ignore-all lint/performance/noImgElement: <No Need Next Image Optimization> */
+"use client";
 
+import {
+	ShoppingBagIcon,
+	UserSquareIcon,
+} from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
+import { signOutAction } from "@/action/sign-out";
 
 export default function NavBar() {
 	return (
@@ -8,14 +14,10 @@ export default function NavBar() {
 			<div className="container">
 				<div
 					id="nav-body"
-					className="flex w-full h-full justify-between items-center"
+					className="flex w-full h-full justify-between items-center max-xl:px-4"
 				>
 					<div id="nav-left" className="flex gap-2">
-						<Link className="flex gap-2 items-center" href={"/"}>
-							{/* <div className="w-10 h-10">
-                
-              </div>
-               */}
+						<Link className="flex gap-2 justify-center items-center" href={"/"}>
 							<img
 								className="rounded-md h-8"
 								src="https://ik.imagekit.io/rcloud/rekomendasiin/public/rekomendasiin-logo-white.svg"
@@ -24,10 +26,81 @@ export default function NavBar() {
 						</Link>
 					</div>
 
-					<div id="nav-right">
-						<p className="max-md:hidden">
-							Hello There! Web is under construction!
-						</p>
+					<div id="nav-right" className="flex items-center gap-2 ">
+						<div className="dropdown dropdown-hover dropdown-end">
+							<input
+								type="search"
+								className="input bg-white text-black rounded-box h-8 p-2 shadow-sm outline-none border border-gray-200"
+								placeholder="Cari disini..."
+							/>
+							<ul
+								tabIndex={-1}
+								className="dropdown-content menu bg-white text-black w-full rounded-box z-1 p-4 shadow-sm border border-gray-200"
+							>
+								<li>
+									<Link href="#" className="text-nowrap">
+										Result 1
+									</Link>
+								</li>
+								<li>
+									<Link href="#" className="text-nowrap">
+										Result 2
+									</Link>
+								</li>
+							</ul>
+						</div>
+
+						<div className="dropdown dropdown-hover dropdown-end">
+							<button
+								type="button"
+								className="btn btn-ghost hover:bg-transparent hover:border-red-700 w-12 p-2"
+								onClick={() => console.log("ok")}
+							>
+								<ShoppingBagIcon size={32} />
+							</button>
+							<ul
+								tabIndex={-1}
+								className="dropdown-content menu bg-white text-black rounded-box z-1 p-4 shadow-sm border border-gray-200"
+							>
+								<li>
+									<Link href="#" className="text-nowrap">
+										Cart 1
+									</Link>
+								</li>
+								<li>
+									<Link href="#" className="text-nowrap">
+										Cart 2
+									</Link>
+								</li>
+							</ul>
+						</div>
+
+						<div className="dropdown dropdown-hover dropdown-end">
+							<button
+								type="button"
+								className="btn btn-ghost hover:bg-transparent hover:border-red-700 w-12 p-2"
+								onClick={() => console.log("ok")}
+							>
+								<UserSquareIcon size={32} />
+							</button>
+							<ul
+								tabIndex={-1}
+								className="dropdown-content menu bg-white text-black rounded-box z-1 p-4 w-max shadow-sm border border-gray-200"
+							>
+								<li>
+									<Link href="#" className="text-nowrap">
+										Profile
+									</Link>
+								</li>
+								<li className="cursor-pointer">
+									<form action={signOutAction}>
+										<button type="submit" className="cursor-pointer">
+											Sign out
+										</button>
+									</form>
+								</li>
+							</ul>
+						</div>
 					</div>
 				</div>
 			</div>
