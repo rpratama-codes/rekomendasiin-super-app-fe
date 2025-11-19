@@ -8,16 +8,16 @@ import RecomendationForm from "./content";
 export type Criteria = { id: string; criteria_name: string }[];
 
 export default async function Page() {
-	const criteria = await fetcher<Criteria>("/store-front/list-criteria");
+  const criteria = await fetcher<Criteria>("/store-front/list-criteria");
 
-	return (
-		<div className="flex flex-col justify-between w-full h-screen">
-			<NavBar />
-			<Section>
-				<RecomendationForm criteria={criteria.data} />
-			</Section>
-			<Tagline />
-			<Footer />
-		</div>
-	);
+  return (
+    <div className="flex flex-col justify-between w-full h-screen">
+      <NavBar />
+      <Section>
+        <RecomendationForm criteria={criteria.data} />
+      </Section>
+      <Tagline />
+      <Footer />
+    </div>
+  );
 }

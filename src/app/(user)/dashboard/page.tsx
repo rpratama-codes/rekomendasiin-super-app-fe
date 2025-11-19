@@ -1,3 +1,3 @@
 export default async function Page() {
-	return <p>OK</p>;
+  return <p>OK</p>;
 }
