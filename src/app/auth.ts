@@ -1,5 +1,4 @@
 import * as jose from "jose";
-import { RedirectType, redirect } from "next/navigation";
 import NextAuth from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
@@ -32,17 +31,22 @@ type BackendLoginData = AccessAndRefreshToken & {
 
 type LoginCredential = { email: string; password: string };
 
-type GoogleLoginArgs = {
-  type: "google-login";
-  idToken: string;
-};
-
 type BackendLoginArgs = {
   type: "backend-login";
   credential: LoginCredential;
 };
 
-type BackendAuthArgs = GoogleLoginArgs | BackendLoginArgs;
+type BackendRefreshArgs = {
+  type: "backend-refresh";
+  token: string;
+};
+
+type GoogleLoginArgs = {
+  type: "google-login";
+  idToken: string;
+};
+
+type BackendAuthArgs = BackendLoginArgs | BackendRefreshArgs | GoogleLoginArgs;
 
 type BackendAuthFunction = (
   args: BackendAuthArgs,
@@ -52,48 +56,63 @@ type BackendJWT = { exp: number; role: string; sub: string };
 
 const backendAuth: BackendAuthFunction = async (args) => {
   let endpoint = backendUrl as string;
-  const payload = {} as Record<string, string>;
+  const headers = new Headers();
+  const options = {} as RequestInit;
 
   switch (args.type) {
     /**
-     * Just make sure later the response of `backend-login` and
-     * `google-login` are the same!, or you will adjust the payload.
+     * Ensure the response structure for `backend-login`, `backend-refresh`,
+     * and `google-login` are identical, or be prepared to adjust the payload accordingly.
      */
     case "backend-login":
+      headers.append("Content-Type", "application/json");
       endpoint += "/v1/auth/sign-in";
-      payload.email = args.credential.email;
-      payload.password = args.credential.password;
+      options.method = "POST";
+      options.headers = headers;
+      options.body = JSON.stringify({
+        email: args.credential.email,
+        password: args.credential.password,
+      });
       break;
 
     case "google-login":
+      headers.append("Content-Type", "application/json");
       endpoint += "/v1/auth/google/verify";
-      payload.idToken = args.idToken;
+      options.method = "POST";
+      options.headers = headers;
+      options.body = JSON.stringify({ idToken: args.idToken });
+      break;
+
+    case "backend-refresh":
+      endpoint += "/v1/auth/refresh";
+      options.method = "GET";
+      headers.append("Authorization", `Bearer ${args.token}`);
+      options.headers = headers;
       break;
   }
 
-  const request = await fetch(endpoint, {
-    method: "POST",
-    body: JSON.stringify(payload),
-    headers: { "Content-Type": "application/json" },
-  });
-
+  const request = await fetch(endpoint, options);
   const response = (await request.json()) as {
     code: number;
     message: string;
     data: BackendLoginData;
   };
 
-  if (String(request.status).startsWith("4")) {
+  if (!request.ok || !response.data) {
     return null;
   }
 
-  const data = response.data;
+  return response.data as BackendLoginData;
+};
 
-  if (!data) {
-    return null;
-  }
-
-  return data as BackendLoginData;
+const transformToNextAuthUser = (data: BackendLoginData) => {
+  if (!data.user) return null;
+  return {
+    ...data.user,
+    name: data.user.username,
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+  };
 };
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -103,49 +122,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
     Credentials({
-      name: 'backend-refresh',
+      id: "backend-refresh",
+      name: "backend-refresh",
       credentials: {
-        refreshToken: { label: "refresh token", type: "text", placeholder: "ey..." }
+        refreshToken: {
+          label: "refresh token",
+          type: "text",
+          placeholder: "ey...",
+        },
       },
-      authorize: async (credential, _req) => {
-        console.log(credential)
-        if (!credential.refreshToken) {
-          return null
-        }
-
-        const request = await fetch(`${backendUrl}/v1/auth/refresh`, {
-          headers: {
-            authorization: `Bearer ${credential.refreshToken}`,
-          },
+      async authorize(credentials, _req) {
+        const data = await backendAuth({
+          type: "backend-refresh",
+          token: credentials.refreshToken as string,
         });
-
-        const response = (await request.json()) as {
-          code: number;
-          message: string;
-          data: BackendLoginData;
-        };
-
-        if (String(request.status).startsWith("4")) {
-          return null;
-        }
-
-        const data = response.data;
 
         if (!data) {
           return null;
         }
 
-        const user = {
-          ...data.user,
-          name: data.user?.username,
-          access_token: data.access_token,
-          refresh_token: data.refresh_token,
-        };
-
-        return user;
-      }
+        return transformToNextAuthUser(data);
+      },
     }),
     Credentials({
+      id: "backend-login",
       name: "backend-login",
       credentials: {
         email: { label: "email", type: "email", placeholder: "jhon@doe.local" },
@@ -161,45 +161,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        const user = {
-          ...data.user,
-          name: data.user?.username,
-          access_token: data.access_token,
-          refresh_token: data.refresh_token,
-        };
-
-        return user;
+        /**
+         * Here adjust payload to be identical with authjs Default User type.
+         */
+        return transformToNextAuthUser(data);
       },
     }),
   ],
   callbacks: {
     async signIn(_params) {
       /**
-       * Let by pass here!
-       * The value from _params is a return result from provider.
+       * Let bypass here, The value from _params is a return result from provider.
        */
       return true;
     },
     async redirect(params) {
       /**
-       * Also same, left as is.
-       * Here just redirect value.
+       * Also same, left it as is.
        */
       return params.baseUrl;
     },
     async jwt({ token, user, account }) {
-      /**
-       * We want fill the payload data of jwt inside the cookie with our preference!.
-       * and if user `null` or `undefined` it mean it from cookie!.
-       */
-      const userData = (user ? user : {}) as User;
-
-      let jwtData: JWT &
+      const jwtData: JWT &
         Partial<BackendJWT> &
         Partial<AccessAndRefreshToken> &
         User = {
         ...token,
-        ...userData,
+        ...((user ?? {}) as User),
       };
 
       if (account && account.provider === "google") {
@@ -211,20 +199,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         /**
          * To handle if something wrong!.
          */
-        if (!verifiedData) return redirect("/auth/signout", RedirectType.push);
-
+        if (!verifiedData) return null;
         /**
-         * Because AuthJS will thread any of auth as session base auth,
-         * Just add an expired date from the refresh token,
-         * since the access token only has a short life time,
-         * then we will make a refresh token logic later,
-         * and it will include any payload like role, sub, etc!.
+         * Because AuthJS treats any authentication as session-based,
+         * we should set the session expiration date using the **refresh token's** expiry time.
+         * The **access token** has a short lifespan, so we will implement
+         * the refresh token logic later, which must ensure the inclusion of all
+         * required payloads (e.g., role, sub, etc.).
          */
         const refreshTokenPayload = jose.decodeJwt(
           verifiedData?.refresh_token as string,
         );
 
-        jwtData = {
+        return {
           ...jwtData,
           ...verifiedData?.user,
           ...refreshTokenPayload,
@@ -234,13 +221,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         };
       }
 
-      return jwtData;
+      if (!jwtData.refresh_token) {
+        return null;
+      }
+
+      const refreshTokenPayload = jose.decodeJwt(jwtData.refresh_token);
+
+      return {
+        /**
+         * The access and refresh tokens already include the `jwtData` object
+         * within the `user` or `token` structure, depending on the source (login or cookie).
+         */
+        ...jwtData,
+        ...refreshTokenPayload,
+        exp: Number(refreshTokenPayload.exp),
+      };
     },
     async session({ session, token }) {
       /**
-       * Expose access and refresh token from resource server to the session that has been included to `token`!.
-       * Don't use user from parameter, it may contain raw data from auth server!.
-       * And unfortunately we can't do refresh token, here. we will do at fetch level.
+       * Expose the access and refresh tokens from the resource server to the session.
+       * They have been included in the `token` object.
+       * * WARNING: Do not use the `user` parameter, as it may contain raw data directly from the authentication server.
+       * * NOTE: Unfortunately, we cannot handle token refreshing here or within the JWT process (attempts have been made).
+       * We will implement token refreshing at the fetch level instead.
        */
       return { ...session, ...token };
     },
