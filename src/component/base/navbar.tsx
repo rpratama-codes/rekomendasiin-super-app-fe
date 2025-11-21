@@ -3,12 +3,22 @@
 
 import {
   ShoppingBagIcon,
+  SignInIcon,
+  SignOutIcon,
+  UserCheckIcon,
   UserSquareIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
-import { signOutAction } from "@/action/sign-out";
+import { RedirectType, redirect } from "next/navigation";
+import { useRefreshToken } from "@/hooks/use-refresh-token";
 
-export default function NavBar() {
+export default function NavBar({
+  hideNavRight = false,
+}: {
+  hideNavRight?: boolean;
+}) {
+  const session = useRefreshToken();
+
   return (
     <div className="flex w-full min-h-14 justify-center items-center bg-linear-to-bl from-red-600 to-red-800 text-white">
       <div className="container">
@@ -26,7 +36,11 @@ export default function NavBar() {
             </Link>
           </div>
 
-          <div id="nav-right" className="flex items-center gap-2 ">
+          <div
+            id="nav-right"
+            className="flex items-center gap-2 "
+            hidden={hideNavRight}
+          >
             <div className="dropdown dropdown-hover dropdown-end">
               <input
                 type="search"
@@ -79,26 +93,69 @@ export default function NavBar() {
               <button
                 type="button"
                 className="btn btn-ghost hover:bg-transparent hover:border-red-700 w-12 p-2"
-                onClick={() => console.log("ok")}
               >
                 <UserSquareIcon size={32} />
               </button>
               <ul
                 tabIndex={-1}
-                className="dropdown-content menu bg-white text-black rounded-box z-1 p-4 w-max shadow-sm border border-gray-200"
+                className="dropdown-content menu flex flex-col gap-2 bg-white text-black rounded-box z-1 p-4 w-max shadow-sm border border-gray-200"
               >
-                <li>
-                  <Link href="#" className="text-nowrap">
-                    Profile
-                  </Link>
-                </li>
-                <li className="cursor-pointer">
-                  <form action={signOutAction}>
-                    <button type="submit" className="cursor-pointer">
-                      Sign out
-                    </button>
-                  </form>
-                </li>
+                {!session && (
+                  <>
+                    <li className="cursor-pointer">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          redirect("/auth/sign-in", RedirectType.push)
+                        }
+                        className="cursor-pointer hover:shadow-sm justify-between"
+                      >
+                        <p>Sign In</p>
+                        <SignInIcon size={20} />
+                      </button>
+                    </li>
+                    <li className="cursor-pointer">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          redirect("/auth/sign-up", RedirectType.push)
+                        }
+                        className="cursor-pointer hover:shadow-sm bg-linear-to-bl from-red-600 to-red-800 text-white justify-between"
+                      >
+                        <p>Sign Up</p>
+                        <UserCheckIcon size={20} />
+                      </button>
+                    </li>
+                  </>
+                )}
+                {session && (
+                  <>
+                    <li className="cursor-pointer">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          redirect("/dashboard", RedirectType.push)
+                        }
+                        className="cursor-pointer hover:shadow-sm justify-between "
+                      >
+                        <p>Dashboard</p>
+                        <UserSquareIcon size={20} />
+                      </button>
+                    </li>
+                    <li className="cursor-pointer">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          redirect("/auth/sign-out", RedirectType.push)
+                        }
+                        className="cursor-pointer hover:shadow-sm justify-between"
+                      >
+                        <p>Sign out</p>
+                        <SignOutIcon size={20} />
+                      </button>
+                    </li>
+                  </>
+                )}
               </ul>
             </div>
           </div>
