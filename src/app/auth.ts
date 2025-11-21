@@ -52,8 +52,16 @@ type BackendAuthFunction = (
   args: BackendAuthArgs,
 ) => Promise<BackendLoginData | null>;
 
+/**
+ * BackendJWT represents the expected claims (payload) inside a JWT
+ * issued by the resource server.
+ */
 type BackendJWT = { exp: number; role: string; sub: string };
 
+/**
+ * The primary function for communicating with the backend authentication endpoints.
+ * It handles login, Google verification, and token refresh.
+ */
 export const backendAuth: BackendAuthFunction = async (args) => {
   let endpoint = backendUrl as string;
   const headers = new Headers();
@@ -61,8 +69,11 @@ export const backendAuth: BackendAuthFunction = async (args) => {
 
   switch (args.type) {
     /**
-     * Ensure the response structure for `backend-login`, `backend-refresh`,
-     * and `google-login` are identical, or be prepared to adjust the payload accordingly.
+     * NOTE: Ensure the response structure for 'backend-login', 'backend-refresh',
+     * and 'google-login' is **identical** (containing `access_token`,
+     * `refresh_token`, and the optional `user` object).
+     * If structures differ, the logic in `transformToNextAuthUser` and the
+     * `jwt` callback must be adjusted accordingly.
      */
     case "backend-login":
       headers.append("Content-Type", "application/json");
@@ -105,17 +116,29 @@ export const backendAuth: BackendAuthFunction = async (args) => {
   return response.data as BackendLoginData;
 };
 
-const transformToNextAuthUser = (data: BackendLoginData) => {
+/**
+ * Transforms the authentication data received from the backend into a format
+ * suitable for NextAuth.js's `user` object.
+ * This includes merging user details with the access and refresh tokens.
+ */
+export const transformToNextAuthUser = (data: BackendLoginData) => {
   if (!data.user) return null;
+
+  const {user, ...rest} = data
+
   return {
-    ...data.user,
+    ...user,
+    ...rest,
     name: data.user.username,
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
   };
 };
 
 export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
+  trustHost: process.env.NODE_ENV === "production" ? true : undefined, // Bypass `trustHost` next production build on local.
+  pages: {
+    signIn: "/auth/sign-in",
+    signOut: "/auth/sign-out",
+  },
   session: {
     strategy: "jwt",
   },
@@ -123,32 +146,6 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    }),
-    /**
-     * Just try refresh token using sign method.
-     */
-    Credentials({
-      id: "backend-refresh",
-      name: "backend-refresh",
-      credentials: {
-        refreshToken: {
-          label: "refresh token",
-          type: "text",
-          placeholder: "ey...",
-        },
-      },
-      async authorize(credentials, _req) {
-        const data = await backendAuth({
-          type: "backend-refresh",
-          token: credentials.refreshToken as string,
-        });
-
-        if (!data) {
-          return null;
-        }
-
-        return transformToNextAuthUser(data);
-      },
     }),
     Credentials({
       id: "backend-login",
@@ -167,9 +164,6 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
           return null;
         }
 
-        /**
-         * Here adjust payload to be identical with authjs Default User type.
-         */
         return transformToNextAuthUser(data);
       },
     }),
@@ -177,13 +171,14 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
   callbacks: {
     async signIn(_params) {
       /**
-       * Let bypass here, The value from _params is a return result from provider.
+       * This callback can be bypassed. The value from `_params` is the
+       * successful return result from the provider's `authorize` function.
        */
       return true;
     },
     async redirect(params) {
       /**
-       * Also same, left it as is.
+       * Returning `params.baseUrl` here maintains the default redirect behavior.
        */
       return params.baseUrl;
     },
@@ -203,37 +198,48 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
         });
 
         /**
-         * To handle if something wrong!.
+         * Handle case where Google token verification fails on the backend.
          */
         if (!verifiedData) return null;
+
         /**
-         * Because AuthJS treats any authentication as session-based,
-         * we should set the session expiration date using the **refresh token's** expiry time.
-         * The **access token** has a short lifespan, so we will implement
-         * the refresh token logic later, which must ensure the inclusion of all
-         * required payloads (e.g., role, sub, etc.).
+         * NextAuth uses the `exp` field of the JWT to determine the session's
+         * lifespan. Since the access token is short-lived, we use the
+         * **refresh token's** expiration (`exp`) to define the overall
+         * session duration.
+         *
+         * The `unstable_update` function requires the new JWT to be returned
+         * with updated tokens and claims (e.g., role, sub, etc.).
          */
         const refreshTokenPayload = jose.decodeJwt(
           verifiedData?.refresh_token as string,
         );
 
+        const newUser = transformToNextAuthUser(verifiedData);
+
         return {
           ...jwtData,
-          ...verifiedData?.user,
+          ...newUser,
           ...refreshTokenPayload,
-          access_token: verifiedData.access_token,
-          refresh_token: verifiedData.refresh_token,
           exp: Number(refreshTokenPayload.exp),
         };
       }
 
       if (trigger === "update") {
+        /**
+         * Merge new session data when `unstable_update` is called.
+         * Handling refresh token from external.
+         */
         return {
           ...jwtData,
           ...session,
         };
       }
 
+      /**
+       * This runs on initial sign-in (Credentials) or on subsequent requests.
+       * If no refresh token exists in the token, authentication failed or the flow is incomplete.
+       */
       if (!jwtData.refresh_token) {
         return null;
       }
@@ -242,24 +248,28 @@ export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
 
       return {
         /**
-         * The access and refresh tokens already include the `jwtData` object
-         * within the `user` or `token` structure, depending on the source (login or cookie).
+         * The `jwtData` object already contains the user data and tokens.
+         * We merge the refresh token's payload to ensure the `exp` claim
+         * (and other core claims like `sub` and `role`) are present and current.
          */
         ...jwtData,
         ...refreshTokenPayload,
         exp: Number(refreshTokenPayload.exp),
       };
     },
-    async session({ session, token, newSession }) {
+    async session({ session, token }) {
       /**
        * Expose the access and refresh tokens from the resource server to the session.
-       * They have been included in the `token` object.
-       * * WARNING: Do not use the `user` parameter, as it may contain raw data directly from the authentication server.
-       * * NOTE: Unfortunately, we cannot handle token refreshing here or within the JWT process (attempts have been made).
-       * We will implement token refreshing at the fetch level instead.
+       * These have been included in the `token` object within the `jwt` callback.
+       *
+       * WARNING: Do not use the raw `user` parameter here, as it may contain data
+       * directly from the authentication server before NextAuth processing.
+       *
+       * NOTE: Token refreshing logic must be implemented **externally** (e.g., at the
+       * fetch level via an interceptor) when the access token expires, as
+       * NextAuth does not reliably handle background token refreshing in this flow.
        */
-      console.log(newSession);
-      return { ...session, ...token, ...(newSession ?? {}) };
+      return { ...session, ...token };
     },
   },
 });
