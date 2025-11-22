@@ -4,6 +4,10 @@ import { unflatten } from "flat";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+/**
+ * TODO : Rename to Search Params Deconstructor.
+ * TODO : Add server side version Search Params Deconstructor.
+ */
 export function useConstructSearchQuery<T = Record<string, unknown>>():
   | T
   | undefined {
