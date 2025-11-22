@@ -12,8 +12,8 @@ import { useEffect } from "react";
  * delayBefore is use to delay set the search querry,
  * before some variable has a value, not null or undefined.
  */
-export function useQuerySetter(
-  params: Record<string, unknown>,
+export function useQuerySetter<T = Record<string, unknown>>(
+  params: T,
   options?: { delayBefore?: unknown[] },
 ): void {
   const router = useRouter();
