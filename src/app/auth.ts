@@ -25,7 +25,7 @@ export interface AccessAndRefreshToken {
   refresh_token: string;
 }
 
-type BackendLoginData = AccessAndRefreshToken & {
+export type BackendLoginData = AccessAndRefreshToken & {
   user?: User;
 };
 
@@ -124,7 +124,7 @@ export const backendAuth: BackendAuthFunction = async (args) => {
 export const transformToNextAuthUser = (data: BackendLoginData) => {
   if (!data.user) return null;
 
-  const {user, ...rest} = data
+  const { user, ...rest } = data;
 
   return {
     ...user,
