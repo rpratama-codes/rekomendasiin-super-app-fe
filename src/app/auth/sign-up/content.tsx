@@ -9,7 +9,7 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import z from "zod";
 import { fetcher2 } from "@/action/fetcher2";
 import type { BackendLoginData, User } from "@/app/auth";
-import { useQuerySetter } from "@/hooks/use-query-constructor";
+import { useQueryConstructor } from "@/hooks/use-query-constructor";
 import FillForm from "./content-form";
 import VerifyForm from "./content-verify";
 
@@ -48,7 +48,7 @@ export default function SignUpForm({
     query?.pageState ?? "fill",
   );
 
-  useQuerySetter<SignUpSearchQuery>({ pageState });
+  useQueryConstructor<SignUpSearchQuery>({ pageState });
 
   const fillFormField = useForm<SignupType>({
     resolver: zodResolver(signUpSchema),
