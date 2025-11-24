@@ -5,13 +5,32 @@ import { useSearchParams } from "next/navigation";
 import { use, useEffect, useState } from "react";
 
 /**
+ * Deconstructs search parameters from either a server-side Promise or the client-side `useSearchParams` hook.
  *
- * @param serverParams
- * @returns
+ * @param serverParams - The search parameters promise (typically from Next.js Server Components).
+ * @returns The unflattened search parameters object.
  *
- * Pass the server side promise search params, or just use client useSearchParams
- * But it not recommended `useSearchParams` is able use server side search params.
+ * @remarks
+ * You can pass the server-side promise or rely on the client-side `useSearchParams`.
+ * However, relying solely on `useSearchParams` is not recommended if server-side params are available.
  *
+ * **Note:** Search query parameters are inherently optional. You should not define types with required properties.
+ *
+ * ❌ **Incorrect** (Properties are required):
+ * ```ts
+ * type PageQuery = {
+ * a: string;
+ * b: string;
+ * }
+ * ```
+ *
+ * ✅ **Correct** (Properties are optional):
+ * ```ts
+ * type PageQuery = {
+ * a?: string;
+ * b?: string;
+ * }
+ * ```
  */
 export function useQueryDeconstructor<T = Record<string, unknown>>(
   serverParams?: Promise<T>,
@@ -27,8 +46,8 @@ export function useQueryDeconstructor<T = Record<string, unknown>>(
       for (const key in serverSearchParams) {
         if (Array.isArray(serverSearchParams[key])) {
           /**
-           * Just make sure the search query not more than one!
-           * Why do we need an ambigous value?
+           * Ensure the search query key is unique.
+           * We select the first index to avoid ambiguous values (arrays).
            */
           checkedQuery[key] = serverSearchParams[key][0];
         } else {
@@ -45,7 +64,7 @@ export function useQueryDeconstructor<T = Record<string, unknown>>(
 
       setQueries(objParams);
     }
-  }, [serverSearchParams, searchParams.entries]);
+  }, [serverSearchParams, searchParams]);
 
   return queries as T | undefined;
 }

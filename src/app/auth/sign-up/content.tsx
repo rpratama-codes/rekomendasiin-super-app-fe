@@ -4,12 +4,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { SearchParams } from "next/dist/server/request/search-params";
 import { RedirectType, redirect } from "next/navigation";
-import { use, useState } from "react";
+import { useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import z from "zod";
 import { fetcher2 } from "@/action/fetcher2";
 import type { BackendLoginData, User } from "@/app/auth";
 import { useQueryConstructor } from "@/hooks/use-query-constructor";
+import { useQueryDeconstructor } from "@/hooks/use-query-deconstructor";
 import FillForm from "./content-form";
 import VerifyForm from "./content-verify";
 
@@ -37,9 +38,9 @@ export type SignUpSearchQuery = {
 export default function SignUpForm({
   searchParams,
 }: {
-  searchParams: Promise<SearchParams>;
+  searchParams?: Promise<SearchParams>;
 }) {
-  const query = use<SignUpSearchQuery>(searchParams);
+  const query = useQueryDeconstructor<SignUpSearchQuery>(searchParams);
 
   const [emailToVerify, setEmailToVerify] = useState<string | undefined>(
     query?.emailToVerify,

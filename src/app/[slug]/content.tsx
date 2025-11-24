@@ -37,24 +37,23 @@ export type Recomendation = {
 };
 
 type QueryValue = {
-  basePrice: {
+  basePrice?: {
     min: string;
     max: string;
   };
-  criteria_id: string;
+  criteria_id?: string;
 };
 
-type Props = {
+export default function RecomendationForm({
+  criteria,
+  searchParams,
+}: {
   criteria?: Criteria;
-  searchParams: Promise<SearchParams>;
-};
-
-export default function RecomendationForm({ criteria, searchParams }: Props) {
+  searchParams?: Promise<SearchParams>;
+}) {
   const { slug } = useParams<{ slug: string }>();
 
-  const queryValue = useQueryDeconstructor<QueryValue>(
-    searchParams as unknown as Promise<QueryValue> | undefined,
-  );
+  const queryValue = useQueryDeconstructor<QueryValue>(searchParams);
 
   const [min, setMin] = useState<number>(
     Number(queryValue?.basePrice?.min ?? 2000000),
