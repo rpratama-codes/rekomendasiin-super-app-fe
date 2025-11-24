@@ -5,10 +5,12 @@ export default function VerifyForm({
   useForm,
   onSubmit,
   emailToVerify,
+  token,
 }: {
   useForm: UseFormReturn<VerifyOTP>;
   onSubmit: SubmitHandler<VerifyOTP>;
   emailToVerify?: string;
+  token?: string;
 }) {
   const {
     register,
@@ -37,6 +39,7 @@ export default function VerifyForm({
         <input
           {...register("token")}
           className="input bg-white border border-gray-200 w-full"
+          defaultValue={token}
           placeholder="OTP"
           type="text"
         />

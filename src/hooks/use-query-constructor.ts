@@ -5,10 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
 /**
- * TODO : Rename to Search Params Constructor
- */
-
-/**
  *
  * @param params an Object
  * @param options - { delayBefore?: unknown[] }
@@ -16,7 +12,7 @@ import { useEffect } from "react";
  * delayBefore is use to delay set the search querry,
  * before some variable has a value, not null or undefined.
  */
-export function useQuerySetter<T = Record<string, unknown>>(
+export function useQueryConstructor<T = Record<string, unknown>>(
   params: T,
   options?: { delayBefore?: unknown[] },
 ): void {

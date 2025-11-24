@@ -2,14 +2,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { SearchParams } from "next/dist/server/request/search-params";
 import { RedirectType, redirect } from "next/navigation";
-import { useState } from "react";
+import { use, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import z from "zod";
 import { fetcher2 } from "@/action/fetcher2";
 import type { BackendLoginData, User } from "@/app/auth";
-import { useConstructSearchQuery } from "@/hooks/use-construct-query";
-import { useQuerySetter } from "@/hooks/use-query-setter";
+import { useQuerySetter } from "@/hooks/use-query-constructor";
 import FillForm from "./content-form";
 import VerifyForm from "./content-verify";
 
@@ -28,13 +28,18 @@ const verifyOtpSchema = z.object({
 export type SignupType = z.infer<typeof signUpSchema>;
 export type VerifyOTP = z.infer<typeof verifyOtpSchema>;
 export type PageState = "fill" | "verify";
-export type SignUpSearchQuery = { pageState?: PageState; emailToVerify?: string };
+export type SignUpSearchQuery = {
+  pageState?: PageState;
+  emailToVerify?: string;
+  token?: string;
+};
 
-export default function SignUpForm() {
-  /**
-   * TODO: Deconstruct search params from server, instead of client.
-   */
-  const query = useConstructSearchQuery<SignUpSearchQuery>();
+export default function SignUpForm({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const query = use<SignUpSearchQuery>(searchParams);
 
   const [emailToVerify, setEmailToVerify] = useState<string | undefined>(
     query?.emailToVerify,
@@ -65,7 +70,7 @@ export default function SignUpForm() {
       },
     });
 
-    console.log(signup)
+    console.log(signup);
 
     /**
      * TODO: Auth Fail Handling
@@ -89,7 +94,7 @@ export default function SignUpForm() {
       },
     });
 
-    console.log(verify)
+    console.log(verify);
 
     /**
      * TODO: Auth Fail Handling
@@ -110,6 +115,7 @@ export default function SignUpForm() {
           emailToVerify={emailToVerify}
           onSubmit={verifyOtp}
           useForm={verifyField}
+          token={query?.token}
         />
       )}
     </>

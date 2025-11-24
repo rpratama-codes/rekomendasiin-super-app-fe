@@ -2,14 +2,14 @@
 /** biome-ignore-all lint/a11y/useKeyWithMouseEvents: <use for feature> */
 "use client";
 
+import type { SearchParams } from "next/dist/server/request/search-params";
 import { useParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import { fetcher } from "@/action/fetcher";
-import { useConstructSearchQuery } from "@/hooks/use-construct-query";
-import { useQuerySetter } from "@/hooks/use-query-setter";
+import { useQueryConstructor } from "@/hooks/use-query-constructor";
+import { useQueryDeconstructor } from "@/hooks/use-query-deconstructor";
 import type { Criteria } from "./page";
 
-export type Props = { criteria?: Criteria };
 export type Item = {
   id: string;
   category_id: string;
@@ -36,16 +36,25 @@ export type Recomendation = {
   comparable_criteria: Set<string>;
 };
 
-export default function RecomendationForm({ criteria }: Props) {
+type QueryValue = {
+  basePrice: {
+    min: string;
+    max: string;
+  };
+  criteria_id: string;
+};
+
+type Props = {
+  criteria?: Criteria;
+  searchParams: Promise<SearchParams>;
+};
+
+export default function RecomendationForm({ criteria, searchParams }: Props) {
   const { slug } = useParams<{ slug: string }>();
 
-  const queryValue = useConstructSearchQuery<{
-    basePrice: {
-      min: string;
-      max: string;
-    };
-    criteria_id: string;
-  }>();
+  const queryValue = useQueryDeconstructor<QueryValue>(
+    searchParams as unknown as Promise<QueryValue> | undefined,
+  );
 
   const [min, setMin] = useState<number>(
     Number(queryValue?.basePrice?.min ?? 2000000),
@@ -61,7 +70,7 @@ export default function RecomendationForm({ criteria }: Props) {
     Recomendation | undefined
   >();
 
-  useQuerySetter(
+  useQueryConstructor(
     {
       basePrice: {
         min,
