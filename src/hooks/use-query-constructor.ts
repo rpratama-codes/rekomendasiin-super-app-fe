@@ -5,12 +5,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
 /**
+ * Updates the URL search parameters by flattening a provided object.
  *
- * @param params an Object
- * @param options - { delayBefore?: unknown[] }
- *
- * delayBefore is use to delay set the search querry,
- * before some variable has a value, not null or undefined.
+ * @param params - The object containing data to sync with the URL.
+ * @param options - Configuration options.
+ * @param options.delayBefore - An array of dependencies. The URL update is deferred
+ * until all values in this array are defined (neither `null` nor `undefined`).
  */
 export function useQueryConstructor<T = Record<string, unknown>>(
   params: T,
@@ -29,17 +29,21 @@ export function useQueryConstructor<T = Record<string, unknown>>(
       }
     }
 
-    const flatternParam = flatten(params) as Record<string, string>;
+    const flattenedParams = flatten(params) as Record<string, string>;
     const currentParams = new URLSearchParams(
       Array.from(searchParams.entries()),
     );
 
-    for (const key in flatternParam) {
-      currentParams.set(key, flatternParam[key]);
+    for (const key in flattenedParams) {
+      currentParams.set(key, flattenedParams[key]);
     }
 
     const newQueryString = currentParams.toString();
     const newUrl = `${pathname}?${newQueryString}`;
+
     router.replace(newUrl);
-  }, [searchParams.entries, router.replace, pathname, params, options]);
+
+    // Note: Be careful with 'params' and 'options' in the dependency array.
+    // If these are new objects on every render, this will cause an infinite loop.
+  }, [searchParams, pathname, router, params, options]);
 }
