@@ -43,7 +43,5 @@ export function useQueryConstructor<T = Record<string, unknown>>(
 
     router.replace(newUrl);
 
-    // Note: Be careful with 'params' and 'options' in the dependency array.
-    // If these are new objects on every render, this will cause an infinite loop.
-  }, [searchParams, pathname, router, params, options]);
+  }, [searchParams.entries, pathname, router.replace, params, options]);
 }
